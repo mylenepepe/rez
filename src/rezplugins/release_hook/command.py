@@ -19,11 +19,14 @@ class CommandReleaseHook(ReleaseHook):
     def __init__(self, source_path):
         super(CommandReleaseHook, self).__init__(source_path)
 
-    def execute_command(self, cmd_name, cmd_arguments=[], user=None):
+    def execute_command(self, cmd_name, cmd_arguments=[], user=None, custom_env=None):
         def _execute_cmd_private(cmd_full_path, arguments, on_error='ignore', quiet=False):
             error_class = None if on_error == 'raise' else ErrorReturnCode
             try:
-                result = cmd_full_path(arguments)
+                if custom_env is not None:
+                    result = cmd_full_path(arguments, _env=custom_env)
+                else:
+                    result = cmd_full_path(arguments)
                 if not quiet:
                     print result.stdout.strip()
             except error_class as err:
@@ -42,15 +45,14 @@ class CommandReleaseHook(ReleaseHook):
         if user not in (None, 'root'):
             cmd_env['USER'] = user
 
-       #run_cmd = Command(cmd_full_path, env=cmd_env)
         run_cmd = Command(cmd_full_path)
 
         settings = self.package.config.plugins.release_hook.command
         if user == 'root':
             with sudo:
-                _execute_cmd_private(run_cmd, cmd_arguments, settings.on_error, settings.quiet)
+                _execute_cmd_private(run_cmd, cmd_arguments, settings.on_error, settings.quiet, cmd_env)
         else:
-            _execute_cmd_private(run_cmd, cmd_arguments, settings.on_error, settings.quiet)
+            _execute_cmd_private(run_cmd, cmd_arguments, settings.on_error, settings.quiet, cmd_env)
 
     def pre_release(self, user, install_path, release_message=None,
                     changelog=None, previous_version=None,
